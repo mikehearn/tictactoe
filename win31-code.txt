@@ -1,0 +1,598 @@
+// Taken from https://github.com/Fahrni/T3/
+#define O_BITMAP 10
+#define X_BITMAP 11
+#define GRID_BIT 12
+#define IDI_T3ICON 14
+#define FileMenu	100
+#define IDM_NEW		110
+#define IDM_EXIT	120
+#define HelpMenu	200
+#define IDM_ABOUT	210
+#define IDD_PLAYER1 301
+#define IDD_PLAYER2 302
+#define STATUS_WIN_HEIGHT 10
+#define WM_T3STATUS WM_USER+1
+#define NEW_GAME_STRING "Press F2 to start a new game."
+#define S_END           "' turn."
+#define X_END			"'es turn."
+#define N_END			"'s turn."
+#define T3_WIDTH ( 240 + (GetSystemMetrics( SM_CXBORDER ) + 1) )
+#define T3_HEIGHT ( 250 + (GetSystemMetrics( SM_CYCAPTION ) + GetSystemMetrics( SM_CYMENU ) + 26 ) )
+
+typedef struct {
+	int nGrid[9];							// Mirror the grid, determines who is the winner!
+	HBITMAP hPlayerMark[2];					// Handle to Player Bitmaps.
+	char szPlayerName[2][31];				// Player names.
+} GRID;
+
+typedef struct {
+	int horz;
+	int vert;
+} POSITION;
+
+static POSITION pos[9] = { 	{25,25},     	// top left
+                           	{95,25},     	// top middle
+			   			   	{165,25},    	// top right
+		           			{25,98},    	// middle left
+			   				{95,98},    	// middle middle
+			   				{165,98},   	// middle right
+			   				{25,172},    	// bottom left
+			   				{95,172},    	// bottom middle
+			   				{165,172} };	// bottom right
+
+// Function prototypes.
+int PASCAL WinMain( HANDLE, HANDLE, LPSTR, int );
+BOOL InitApplication( HANDLE );
+BOOL InitInstance( HANDLE, int );
+long FAR PASCAL MainWndProc( HWND, UINT, WPARAM, LPARAM );
+long FAR PASCAL BabyWndProc( HWND, UINT, WPARAM, LPARAM );
+long FAR PASCAL StatusWndProc( HWND, UINT, WPARAM, LPARAM );
+BOOL FAR PASCAL NewGame( HWND, UINT, WPARAM, LPARAM );
+BOOL FAR PASCAL About( HWND, unsigned, WORD, LONG );
+BOOL bIsGridTaken( unsigned );
+void CheckForWinner( BOOL, HWND );
+void vResetGridStruct( void );
+void DisplayInStatus( char * );
+void DoPlayersHaveNames( void );
+void vPlayerStatMsg( GRID );
+
+// Lots of globals!
+char    szAppName[] = "BitmapTest1";        // Application name for lpszClassName in WNDCLASS.
+char    szBabyName[] = "BabyWindow";        // Baby Window name for lpszClassName in WNDCLASS.
+char    szStatusName[] = "StatusWindow";    // Status Window name for lpszClassName in WNDCLASS.
+char    szStatusMessage[45];                // Status "Message".
+char    szPlayerStatMsg[2][45];             // Put the status messages for players in here.
+HANDLE  hInst;                              // current instance
+HWND    hWnd, hStatusWnd;                   // Main window handle, Status window handle.
+HBITMAP hObitmap, hXbitmap, hCurrentBitmap, hPlayingGrid; // Don't loose this value!
+BITMAP  GridBitmap;                         // Put "O" and "X" bitmaps in here
+GRID    g;                                  // Player Information, structure.
+BOOL    bPlayerMark = 1, bGameNotOver = 0;  // Start with "O" bitmap, GAME STARTS AS OVER.
+int     nNumClicks  = 0;                    // Blank the number of clicks.
+
+int PASCAL WinMain(HANDLE hInstance, HANDLE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+    MSG msg;
+    HANDLE hAccel;                          // for accelerator keys.
+
+    if (!hPrevInstance)                     // Other instances of app running?
+    if (!InitApplication(hInstance))        // Initialize shared things
+        return (FALSE);                     // Exits if unable to initialize
+
+    // Perform initializations that apply to a specific instance
+    if (!InitInstance(hInstance, nCmdShow))
+    return (FALSE);
+
+    hAccel = LoadAccelerators( hInstance, "TicMenu" );
+
+    // Acquire and dispatch messages until a WM_QUIT message is received.
+    while ( GetMessage( &msg, NULL, NULL, NULL ) )
+    {
+        // Check to see if an accelerator was pressed.
+        if ( !TranslateAccelerator( hWnd, hAccel, &msg ) ) {
+            TranslateMessage(&msg);             // Translates virtual key codes
+            DispatchMessage(&msg);              // Dispatches message to window
+        }
+    }
+    return (msg.wParam);                // Returns the value from PostQuitMessage
+}
+
+
+BOOL InitApplication(HANDLE hInstance)
+{
+    WNDCLASS  wc;
+    wc.style         = NULL;                // Class style(s).
+    wc.lpfnWndProc   = MainWndProc;         // Function to retrieve messages for
+                                            // windows of this class.
+    wc.cbClsExtra    = 0;                   // No per-class extra data.
+    wc.cbWndExtra    = 0;                   // No per-window extra data.
+    wc.hInstance     = hInstance;           // Application that owns the class.
+    wc.hIcon         = LoadIcon(hInstance, MAKEINTRESOURCE( IDI_T3ICON ) );
+    wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+    // wc.hbrBackground = GetStockObject(WHITE_BRUSH);
+    wc.hbrBackground = GetStockObject(LTGRAY_BRUSH);
+    wc.lpszMenuName  =  "TicMenu";          // Name of menu resource in .RC file.
+    wc.lpszClassName = (LPSTR) szAppName;   // Name used in call to CreateWindow.
+
+    if ( !RegisterClass(&wc) )
+        return FALSE;
+
+    wc.lpfnWndProc   = BabyWndProc;
+    wc.cbWndExtra    = sizeof (WORD);
+    wc.hIcon         = NULL;
+    wc.hbrBackground = GetStockObject(LTGRAY_BRUSH);
+    // wc.hbrBackground = GetStockObject(BLACK_BRUSH);
+    wc.lpszClassName = (LPSTR) szBabyName;
+
+    if ( !RegisterClass(&wc) )
+        return FALSE;
+
+    wc.lpfnWndProc   = StatusWndProc;
+    wc.cbWndExtra    = sizeof (WORD);
+    wc.hIcon         = NULL;
+    wc.hbrBackground = GetStockObject(LTGRAY_BRUSH);
+    wc.lpszClassName = (LPSTR) szStatusName;
+
+    if ( !RegisterClass(&wc) )
+        return FALSE;
+
+    return TRUE;
+
+}
+
+BOOL InitInstance(HANDLE hInstance, int nCmdShow)
+{
+    hInst = hInstance;
+
+    hWnd = CreateWindow(
+        (LPSTR) szAppName,              // See RegisterClass() call.
+        "Tic-Tac-Toe",                  // Text for window title bar.
+        WS_BORDER | WS_SYSMENU | WS_MINIMIZEBOX, // Window style.
+        CW_USEDEFAULT,                  // Default horizontal position.
+        CW_USEDEFAULT,                  // Default vertical position.
+        T3_WIDTH,                       // Default width.
+        T3_HEIGHT,                      // Default height.
+        NULL,                           // Overlapped windows have no parent.
+        NULL,                           // Use the window class menu.
+        hInstance,                      // This instance owns this window.
+        NULL                            // Pointer not needed.
+        );
+
+    if (!hWnd)
+    return (FALSE);
+
+    ShowWindow(hWnd, nCmdShow);  // Show the window
+    UpdateWindow(hWnd);          // Sends WM_PAINT message
+    return (TRUE);               // Returns the value from PostQuitMessage
+
+}
+
+long FAR PASCAL MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+FARPROC lpProcAbout, lpProcNewGame;     // pointer to the "About" function
+static HWND hBaby[9];
+PAINTSTRUCT ps;
+RECT lprectWinCoord;
+int x;
+char szTmpBuffer[60];
+
+    switch (message) {
+
+        case WM_CREATE:
+
+            g.hPlayerMark[0]    = LoadBitmap( hInst, MAKEINTRESOURCE(O_BITMAP) );
+            g.hPlayerMark[1]    = LoadBitmap( hInst, MAKEINTRESOURCE(X_BITMAP) );
+            hPlayingGrid        = LoadBitmap( hInst, MAKEINTRESOURCE(GRID_BIT) );
+
+            hCurrentBitmap = g.hPlayerMark[0];
+
+            for ( x=0; x < 9; x++ ) {
+                hBaby[x] = CreateWindow( (LPSTR) szBabyName, NULL, WS_CHILD | WS_VISIBLE,
+                                     pos[x].horz, pos[x].vert, 50, 50, hWnd,
+                                     x, hInst, NULL );
+            }
+
+            hStatusWnd   = CreateWindow( (LPSTR) szStatusName, NULL, WS_CHILD | WS_VISIBLE,
+                                    10, 250, 221, 21, hWnd,
+                                     NULL, hInst, NULL );
+
+            strcpy(szTmpBuffer, NEW_GAME_STRING );
+            DisplayInStatus( szTmpBuffer );
+            break;
+        case WM_PAINT:
+            BeginPaint( hWnd, &ps );
+            BlitIt( ps.hdc, hPlayingGrid );
+            EndPaint( hWnd, &ps );
+            break;
+        case WM_COMMAND:
+            switch(wParam) {
+                case IDM_NEW:
+                    lpProcNewGame = MakeProcInstance( NewGame, hInst );
+                    DialogBox( hInst, "NewGame", hWnd, lpProcNewGame );
+                    FreeProcInstance( lpProcNewGame );
+                    break;
+
+                case IDM_EXIT:
+                    PostQuitMessage(0);
+                    break;
+
+                default:
+                    return ( DefWindowProc( hWnd, message, wParam, lParam ) );
+            }
+            break;
+
+        case WM_DESTROY:                  /* message: window being destroyed */
+            PostQuitMessage(0);
+            break;
+
+        default:                          /* Passes it on if unproccessed    */
+            return (DefWindowProc(hWnd, message, wParam, lParam));
+    }
+    return (NULL);
+}
+
+long FAR PASCAL BabyWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+// HDC hDC;
+PAINTSTRUCT bps;
+static BOOL bGridTaken, bTmpPlayerNum;
+static unsigned nGridNumber;
+char szTmpBuffer[80];
+
+    switch (message)
+        {
+            case WM_LBUTTONUP:
+
+                nGridNumber = GetMenu( hWnd );                      // Get the Baby Windows ID number.
+
+                bGridTaken = bIsGridTaken( nGridNumber );           // Check to see if this grid is taken.
+
+                if ( !bGridTaken && bGameNotOver ) {
+                    g.nGrid[nGridNumber] = bPlayerMark;             // Place a mark in the players grid array.
+                    hCurrentBitmap = g.hPlayerMark[bPlayerMark - 1];    // X or O bitmap.
+                    InvalidateRect( hWnd, NULL, FALSE );
+                    UpdateWindow(hWnd);          // Sends WM_PAINT message
+                    nNumClicks++;                                   // Number of clicks as of NOW!
+
+                    if ( nNumClicks >= 5)
+                        CheckForWinner( bPlayerMark, hWnd );
+
+                    bPlayerMark = (bPlayerMark == 2) ? 1 : 2;       // If bPlayerMark is 1 make it 2 and vice-versa.
+
+                    if (bGameNotOver)
+                    	strcpy( szTmpBuffer, szPlayerStatMsg[bPlayerMark - 1] );
+                    else
+                        strcpy( szTmpBuffer, NEW_GAME_STRING );
+
+                    DisplayInStatus( szTmpBuffer );
+
+                }
+                break;
+
+            case WM_PAINT:
+
+            	nGridNumber = GetMenu( hWnd );
+                bGridTaken = bIsGridTaken( nGridNumber );           // Check to see if this grid is taken.
+
+                if (bGridTaken) {
+                	BeginPaint( hWnd, &bps );
+
+                    hCurrentBitmap = g.hPlayerMark[ g.nGrid[nGridNumber] - 1 ];
+
+                    // Blast the players mark to the screen, X or O!
+                    BlitIt( bps.hdc, hCurrentBitmap );
+
+                    EndPaint( hWnd, &bps );
+            	}
+
+                return DefWindowProc( hWnd, message, wParam, lParam );
+            	break;
+
+            default:
+                return DefWindowProc( hWnd, message, wParam, lParam);
+        }
+
+    return 0L;
+}
+
+long FAR PASCAL StatusWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+// HDC hDCstatus;
+PAINTSTRUCT sps;
+RECT src;
+LOGFONT lf;
+HFONT hfontHelv;
+
+    switch (message)
+        {
+
+            case WM_T3STATUS:
+
+                // DEBUG("Receiving WM_T3STATUS message\n",0)
+                InvalidateRect( hWnd, NULL, FALSE );
+                UpdateWindow( hWnd );
+                break;
+
+            case WM_PAINT:
+
+                // DEBUG("Receiving WM_PAINT for StatusWndProc\n",0)
+                // DEBUG("**** szStatusMessage inside StatusWndProc is %s\n",(LPSTR) szStatusMessage )
+
+                BeginPaint( hWnd, &sps );
+
+                src.left   = 0;// 3
+                src.top    = 0;// 2
+                src.right  = 220; //217
+                src.bottom = 19; //14
+
+                nDrawConcaveFrame( sps.hdc, src );
+
+                memset( &lf, 0, sizeof( LOGFONT ) );
+                lf.lfHeight = 9;
+                lf.lfWidth = 1;
+                lstrcpy( lf.lfFaceName, "Helv" );
+                hfontHelv = CreateFontIndirect( &lf );
+                SelectObject(sps.hdc, hfontHelv );
+
+                SetBkColor( sps.hdc, clrLTGRAY );
+
+                TextOut( sps.hdc, 5, 4, (LPSTR) szStatusMessage, strlen(szStatusMessage) );
+
+                EndPaint( hWnd, &sps );
+                DeleteObject( hfontHelv );
+                return DefWindowProc( hWnd, message, wParam, lParam );
+                break;
+
+            default:
+                return DefWindowProc( hWnd, message, wParam, lParam);
+        }
+    return 0L;
+}
+
+BOOL FAR PASCAL NewGame( HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam )
+{
+HWND hParent;
+char szTmpBuffer[80];
+
+    switch (message) {
+        case WM_INITDIALOG:
+            return (TRUE);
+
+        case WM_COMMAND:
+
+            if (wParam == IDOK) {
+
+                vResetGridStruct();                     // Reset the grid structure.
+                GetDlgItemText( hDlg, IDD_PLAYER1, (LPSTR) g.szPlayerName[0], 30 );
+                GetDlgItemText( hDlg, IDD_PLAYER2, (LPSTR) g.szPlayerName[1], 30 );
+                EndDialog(hDlg, TRUE);                  // Exits the dialog box
+
+                DoPlayersHaveNames();
+
+                hParent = GetParent( hDlg );            // Get the main windows handle.
+                InvalidateRect( hParent, NULL, FALSE ); // This forces a repaint!
+
+                vPlayerStatMsg( g );
+                strcpy( szTmpBuffer, szPlayerStatMsg[0] );
+                DisplayInStatus( szTmpBuffer );         // Set the display string, and send a message.
+                bGameNotOver = -1;                      // Tell TTT the game is NOT over.
+                return (TRUE);
+
+            } else if (wParam == IDCANCEL) {
+
+                EndDialog(hDlg, TRUE);
+                return (TRUE);
+
+            }
+            break;
+    }
+
+    return (FALSE);
+}
+
+BOOL bIsGridTaken( unsigned nGridNumber )
+{
+
+    // See if somebody has the "nGridNumber" position in the playing grid.
+    if ( g.nGrid[nGridNumber] )
+        return TRUE;
+
+return FALSE;                                       // Somebody owns it!
+}
+
+void CheckForWinner( BOOL bPlayerID, HWND hWnd )
+{
+char szTextBuffer[80];
+int nRow, nCol, bWinnerFlag = 0;
+
+    wsprintf( szTextBuffer, "Congratulations %s you win!", (LPSTR) g.szPlayerName[bPlayerID - 1] );
+
+    // Check the Rows for a winner
+    for (nRow=0; nRow < 9; nRow +=3) {
+        for (nCol = nRow; nCol < (nRow + 3); nCol++) {
+            if (g.nGrid[nCol] == bPlayerID) {
+                bWinnerFlag++;
+                if (bWinnerFlag == 3) {
+                    MessageBox(hWnd, szTextBuffer, "Tic-Tac-Toe", MB_OK | MB_ICONEXCLAMATION);
+                    // DEBUG("Row number %d is the winner\n",nCol)
+                    bGameNotOver = 0;
+                    return;
+                }
+            } else {
+                bWinnerFlag = 0;
+                break;
+            }
+        }
+    }
+
+    // Check the columns for a winner
+    for (nRow = 0; nRow < 3; nRow++) {
+        for (nCol = nRow; nCol < (nRow + 9); nCol +=3) {
+            if (g.nGrid[nCol] == bPlayerID) {
+                bWinnerFlag++;
+                if (bWinnerFlag == 3) {
+                    MessageBox(hWnd, szTextBuffer, "Tic-Tac-Toe", MB_OK | MB_ICONEXCLAMATION);
+                    // DEBUG("Column number %d is the winner\n",nRow)
+                    bGameNotOver = 0;
+                    return;
+                }
+            } else {
+                bWinnerFlag = 0;
+                break;
+            }
+        }
+    }
+
+    // Check for Left diagonal winner
+    for (nRow = 0; nRow < 12; nRow += 4) {
+        if (g.nGrid[nRow] == bPlayerID) {
+            bWinnerFlag++;
+            if (bWinnerFlag == 3) {
+                MessageBox(hWnd, szTextBuffer, "Tic-Tac-Toe", MB_OK | MB_ICONEXCLAMATION);
+                // DEBUG("left diagonal is the winner\n",0)
+                bGameNotOver = 0;
+                return;
+            }
+        } else {
+            bWinnerFlag = 0;
+            break;
+        }
+    }
+
+    // Check for Right diagonal winner
+    for (nRow = 2; nRow < 8; nRow += 2) {
+        if (g.nGrid[nRow] == bPlayerID) {
+            bWinnerFlag++;
+            if (bWinnerFlag == 3) {
+                MessageBox(hWnd, szTextBuffer, "Tic-Tac-Toe", MB_OK | MB_ICONEXCLAMATION);
+                // DEBUG("right diagonal is the winner\n",0)
+                bGameNotOver = 0;
+                return;
+            }
+
+        } else {
+            bWinnerFlag = 0;
+            break;
+
+        }
+    }
+
+    if (nNumClicks >= 9) {
+        bGameNotOver = 0;
+        MessageBox(hWnd, "We have a tie game!", "Tic-Tac-Toe", MB_OK | MB_ICONEXCLAMATION);
+    }
+
+}
+
+void DisplayInStatus( char *szDisplayString )
+{
+    // DEBUG( "Status Message is %s\n", (LPSTR) szDisplayString )
+    // DEBUG( "Lenght of string is %d\n", strlen( szDisplayString ) )
+
+    strcpy( szStatusMessage, szDisplayString );
+    vPadString( szStatusMessage, 45 );
+    SendMessage (hStatusWnd, WM_T3STATUS, 0, 0L );
+
+}
+
+void vResetGridStruct(void)
+{
+    int nArrayElement;
+
+    for(nArrayElement=0; nArrayElement < 9; nArrayElement++) {
+        g.nGrid[nArrayElement] = 0;
+    }
+    bPlayerMark = 1;
+    nNumClicks  = 0;
+
+}
+
+void DoPlayersHaveNames( )
+{
+    if ( !strlen(g.szPlayerName[0]) | g.szPlayerName[0][0] == ' ' )
+        strcpy( g.szPlayerName[0], "Player One" );
+
+    if ( !strlen(g.szPlayerName[1]) | g.szPlayerName[1][0] == ' ' )
+        strcpy( g.szPlayerName[1], "Player Two" );
+}
+
+void vPlayerStatMsg( GRID g )
+{
+    int x = 0, y = 0;
+
+    strcpy( szPlayerStatMsg[0], g.szPlayerName[0] );
+    strcpy( szPlayerStatMsg[1], g.szPlayerName[1] );
+
+    x = ( strlen( szPlayerStatMsg[0] ) - 1 );
+    y = ( strlen( szPlayerStatMsg[1] ) - 1 );
+
+    // Setup the first player status message.
+    if ( szPlayerStatMsg[0][x] == 's' )
+        strcat( szPlayerStatMsg[0], S_END );
+    else if ( szPlayerStatMsg[0][x] == 'x' )
+        strcat( szPlayerStatMsg[0], X_END );
+    else
+        strcat( szPlayerStatMsg[0], N_END );
+
+
+    // Get the Second Player Status Message setup
+    if ( szPlayerStatMsg[1][y] == 's' )
+        strcat( szPlayerStatMsg[1], S_END );
+    else if ( szPlayerStatMsg[1][y] == 'x' )
+        strcat( szPlayerStatMsg[1], X_END );
+    else
+        strcat( szPlayerStatMsg[1], N_END );
+
+}
+
+void nDrawConcaveFrame( HDC hDestDC, RECT rc )
+{
+#ifdef DEBUGGING
+// the below two statements are for debugging on my mono monitor.
+	static LOGPEN lpLtGray = { PS_SOLID, 1, 1, clrBLACK },
+			  	  lpWhite  = { PS_SOLID, 1, 1, clrBLACK };
+#else
+	static LOGPEN lpLtGray = { PS_SOLID, 1, 1, clrDKGRAY },
+			  	  lpWhite  = { PS_SOLID, 1, 1, clrWHITE };
+#endif
+
+HPEN hLtGray, hWhite;
+
+	hLtGray = CreatePenIndirect( &lpLtGray );
+	hWhite  = CreatePenIndirect( &lpWhite );
+
+	MoveTo( hDestDC, rc.right, rc.top );
+
+	// Paint the top and left side lines, light gray.
+	SelectObject( hDestDC, hLtGray );
+	LineTo( hDestDC, rc.left, rc.top );
+	LineTo( hDestDC, rc.left, rc.bottom );
+
+	// Paint the bottom and right side lines, white.
+	SelectObject( hDestDC, hWhite );
+	LineTo( hDestDC, rc.right, rc.bottom );
+    LineTo( hDestDC, rc.right, rc.top );
+
+    DeleteObject( hLtGray );
+    DeleteObject( hWhite );
+}
+
+void vPadString( char *szStringToPad, int nStrLength )
+{
+	int nLoopCntr;
+
+	for( nLoopCntr = strlen( szStringToPad ); nLoopCntr < ( nStrLength - 1 ); nLoopCntr++ )
+		strcat( szStringToPad, " " );
+}
+
+void BlitIt( HDC hDC, HBITMAP hBitmap )
+{
+BITMAP bm;
+HDC hMemDC;
+
+	hMemDC = CreateCompatibleDC( hDC );
+	SelectObject( hMemDC, hBitmap );
+	GetObject( hBitmap, sizeof(BITMAP), (LPSTR) &bm );
+	BitBlt( hDC, 0, 0, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0, SRCCOPY );
+	DeleteDC( hMemDC );
+}

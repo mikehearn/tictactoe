@@ -1,0 +1,29 @@
+.board > .button {
+    -fx-min-width: 100px;
+    -fx-min-height: 100px;
+    -fx-font-size: 20pt;
+}
+
+.board {
+    -fx-vgap: 20px;
+    -fx-hgap: 20px;
+}
+
+.game {
+    -fx-padding: 50px;
+    -fx-background-color: white;
+    -fx-spacing: 25px;
+}
+
+.game-moves {
+    -fx-spacing: 10px;
+}
+
+.game-moves > .button {
+    -fx-min-width: 150.0;
+}
+
+.status-label {
+    -fx-font-size: 15pt;
+    -fx-font-family: "Century Gothic", Future, sans-serif;
+}
