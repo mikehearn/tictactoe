@@ -21,8 +21,8 @@
 
 typedef struct {
 	int nGrid[9];							// Mirror the grid, determines who is the winner!
-	HBITMAP hPlayerMark[2];					// Handle to Player Bitmaps.
-	char szPlayerName[2][31];				// Player names.
+	HBITMAP hPlayerMark[2];					// Handle to tictactoe.Player Bitmaps.
+	char szPlayerName[2][31];				// tictactoe.Player names.
 } GRID;
 
 typedef struct {
@@ -66,7 +66,7 @@ HANDLE  hInst;                              // current instance
 HWND    hWnd, hStatusWnd;                   // Main window handle, Status window handle.
 HBITMAP hObitmap, hXbitmap, hCurrentBitmap, hPlayingGrid; // Don't loose this value!
 BITMAP  GridBitmap;                         // Put "O" and "X" bitmaps in here
-GRID    g;                                  // Player Information, structure.
+GRID    g;                                  // tictactoe.Player Information, structure.
 BOOL    bPlayerMark = 1, bGameNotOver = 0;  // Start with "O" bitmap, GAME STARTS AS OVER.
 int     nNumClicks  = 0;                    // Blank the number of clicks.
 
@@ -369,7 +369,7 @@ char szTmpBuffer[80];
 
                 DoPlayersHaveNames();
 
-                hParent = GetParent( hDlg );            // Get the main windows handle.
+                hParent = GetParent( hDlg );            // Get the tictactoe.main windows handle.
                 InvalidateRect( hParent, NULL, FALSE ); // This forces a repaint!
 
                 vPlayerStatMsg( g );
@@ -510,10 +510,10 @@ void vResetGridStruct(void)
 void DoPlayersHaveNames( )
 {
     if ( !strlen(g.szPlayerName[0]) | g.szPlayerName[0][0] == ' ' )
-        strcpy( g.szPlayerName[0], "Player One" );
+        strcpy( g.szPlayerName[0], "tictactoe.Player One" );
 
     if ( !strlen(g.szPlayerName[1]) | g.szPlayerName[1][0] == ' ' )
-        strcpy( g.szPlayerName[1], "Player Two" );
+        strcpy( g.szPlayerName[1], "tictactoe.Player Two" );
 }
 
 void vPlayerStatMsg( GRID g )
@@ -535,7 +535,7 @@ void vPlayerStatMsg( GRID g )
         strcat( szPlayerStatMsg[0], N_END );
 
 
-    // Get the Second Player Status Message setup
+    // Get the Second tictactoe.Player Status Message setup
     if ( szPlayerStatMsg[1][y] == 's' )
         strcat( szPlayerStatMsg[1], S_END );
     else if ( szPlayerStatMsg[1][y] == 'x' )
@@ -563,12 +563,12 @@ HPEN hLtGray, hWhite;
 
 	MoveTo( hDestDC, rc.right, rc.top );
 
-	// Paint the top and left side lines, light gray.
+	// Paint the top and left side tictactoe.getLines, light gray.
 	SelectObject( hDestDC, hLtGray );
 	LineTo( hDestDC, rc.left, rc.top );
 	LineTo( hDestDC, rc.left, rc.bottom );
 
-	// Paint the bottom and right side lines, white.
+	// Paint the bottom and right side tictactoe.getLines, white.
 	SelectObject( hDestDC, hWhite );
 	LineTo( hDestDC, rc.right, rc.bottom );
     LineTo( hDestDC, rc.right, rc.top );

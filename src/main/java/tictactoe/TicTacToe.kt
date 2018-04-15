@@ -1,18 +1,20 @@
-import Player.O
-import Player.X
+package tictactoe
+
 import javafx.application.Application
 import javafx.beans.Observable
 import javafx.beans.binding.Bindings.createObjectBinding
 import javafx.beans.binding.ObjectBinding
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
+import javafx.geometry.Pos
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
-import javafx.scene.layout.GridPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.VBox
+import javafx.scene.effect.DropShadow
+import javafx.scene.layout.*
 import javafx.stage.Stage
+import tictactoe.Player.O
+import tictactoe.Player.X
 import java.util.concurrent.Callable
 
 enum class Player { X, O }
@@ -63,7 +65,7 @@ class TicTacToe : Application() {
         }
 
         boards += Board()
-        val statusLabel = Label().also { it.styleClass += "status-label" }
+        val statusLabel = Label().also { it.styleClass += "status-tictactoe.label" }
         statusLabel.textProperty().bind(boards.compute { statusText() })
 
         val hbox = HBox(
@@ -73,18 +75,21 @@ class TicTacToe : Application() {
                 )
         )
         hbox.styleClass += "game"
+        hbox.effect = DropShadow()
+        hbox.alignment = Pos.TOP_CENTER
+        hbox.maxHeight = Region.USE_PREF_SIZE
         with(stage) {
-            scene = Scene(hbox)
-            scene.stylesheets.add("tictactoe.css")
+            scene = Scene(StackPane(hbox))   // Center in window
+            scene.stylesheets.add("/tictactoe/tictactoe.css")
             title = "Tic Tac Toe"
             show()
         }
     }
 
-        private fun jumpTo(newIndex: Int) {
-            currentPlayer = if (newIndex - 1 % 2 == 0) X else O
-            boards.setAll(boards.take(newIndex))
-        }
+    private fun jumpTo(newIndex: Int) {
+        currentPlayer = if (newIndex - 1 % 2 == 0) X else O
+        boards.setAll(boards.take(newIndex))
+    }
 
     private fun statusText(): String {
         val winner = boards.last().computeWinner()

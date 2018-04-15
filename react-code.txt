@@ -6,7 +6,7 @@ function Square(props) {
   );
 }
 
-class Board extends React.Component {
+class tictactoe.Board extends React.Component {
   renderSquare(i) {
     return (
       <Square
@@ -105,7 +105,7 @@ class Game extends React.Component {
     return (
       <div className="game">
         <div className="game-board">
-          <Board
+          <tictactoe.Board
             squares={current.squares}
             onClick={i => this.handleClick(i)}
           />
@@ -124,7 +124,7 @@ class Game extends React.Component {
 ReactDOM.render(<Game />, document.getElementById("root"));
 
 function calculateWinner(squares) {
-  const lines = [
+  const tictactoe.getLines = [
     [0, 1, 2],
     [3, 4, 5],
     [6, 7, 8],
@@ -134,8 +134,8 @@ function calculateWinner(squares) {
     [0, 4, 8],
     [2, 4, 6]
   ];
-  for (let i = 0; i < lines.length; i++) {
-    const [a, b, c] = lines[i];
+  for (let i = 0; i < tictactoe.getLines.length; i++) {
+    const [a, b, c] = tictactoe.getLines[i];
     if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
       return squares[a];
     }
