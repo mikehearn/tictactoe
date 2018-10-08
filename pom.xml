@@ -4,7 +4,7 @@
 
     <groupId>net.plan99</groupId>
     <artifactId>tictactoe</artifactId>
-    <version>1.0.7-SNAPSHOT</version>
+    <version>1.0.7</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -14,7 +14,7 @@
 
     <scm>
         <developerConnection>scm:git:https://github.com/mikehearn/tictactoe.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>tictactoe-1.0.7</tag>
     </scm>
 
     <distributionManagement>
