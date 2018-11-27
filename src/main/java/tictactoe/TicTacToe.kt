@@ -1,5 +1,7 @@
 package tictactoe
 
+import app.graviton.api.v1.Graviton
+import app.graviton.api.v1.GravitonRunInShell
 import javafx.application.Application
 import javafx.beans.Observable
 import javafx.beans.binding.Bindings.createObjectBinding
@@ -51,11 +53,11 @@ class Board(private val squares: Array<Player?> = Array(9) { null }) {
 fun <T, R> ObservableList<T>.compute(block: (ObservableList<T>) -> R): ObjectBinding<R> = createObjectBinding(Callable { block(this) }, this)
 fun <T, R> ObservableList<T>.computeLast(block: (T) -> R) = compute { block(it.last()) }
 
-class TicTacToe : Application() {
+class TicTacToe : Application(), GravitonRunInShell {
     private val boards = FXCollections.observableArrayList<Board>()
     private var currentPlayer = X
 
-    override fun start(stage: Stage) {
+    override fun createScene(graviton: Graviton?): Scene {
         val gameMoves = VBox().also { it.styleClass += "game-moves" }
         boards.addListener { _: Observable ->
             gameMoves.children.setAll(boards.indices.map { index ->
@@ -70,18 +72,26 @@ class TicTacToe : Application() {
 
         val hbox = HBox(
                 createGrid(), VBox(
-                    statusLabel,
-                    gameMoves
-                )
+                statusLabel,
+                gameMoves
+        )
         )
         hbox.styleClass += "game"
         hbox.effect = DropShadow()
         hbox.alignment = Pos.TOP_CENTER
         hbox.maxHeight = Region.USE_PREF_SIZE
+        val root = StackPane(hbox)
+        val scene = if (graviton != null) Scene(root, graviton.width.toDouble(), graviton.height.toDouble()) else Scene(root)
+        scene.stylesheets.add("/tictactoe/tictactoe.css")
+        return scene   // Center in window
+    }
+
+    override fun start(stage: Stage) {
+        stage.title = "Tic Tac Toe"
+        if (stage.isShowing) return  // In Graviton
+
         with(stage) {
-            scene = Scene(StackPane(hbox))   // Center in window
-            scene.stylesheets.add("/tictactoe/tictactoe.css")
-            title = "Tic Tac Toe"
+            scene = createScene(null)
             show()
         }
     }
@@ -127,8 +137,4 @@ class TicTacToe : Application() {
         }
         boards.add(currentBoard.with(x, y, player))
     }
-}
-
-fun main(args: Array<String>) {
-    Application.launch(TicTacToe::class.java, *args)
 }

@@ -4,6 +4,8 @@ A simple reimplementation of the ReactJS tictactoe tutorial in JavaFX, for [this
 
 which compares the productivity of JavaFX vs React/HTML via the somewhat crude measure of lines of code.
 
+This app has been adapted for Graviton.
+
 # License
 
 Apache 2.0
